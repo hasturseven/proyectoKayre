@@ -769,6 +769,31 @@ for paciente_id, paciente_info in data.items():
     #-.--------------------------- RAM
     texto=str(paciente_info.get("ram")).lower()
     ram = 0 if "niega" in texto else 1
+    # Nuevas columnas RAM adicionales
+    columnas_ram_adicionales = {
+        "MEDICAMENTO_SOSPECHOSO": 0 if ram == 0 else "",
+        "ESTADO ACUTAL RAM": 0 if ram == 0 else "",
+        "0NO 2 SI": 0 if ram == 0 else "",
+        "TIPO": 0 if ram == 0 else "",
+        "DEFINIDO POR COMITE FV": 0 if ram == 0 else "",
+        "0 NO 1 SI": 0 if ram == 0 else "",
+        "ADMINISTRACION ERRONEA DEL MEDICAMENTO": 0 if ram == 0 else "",
+        "CARACTERISTICAS PERSONALES": 0 if ram == 0 else "",
+        "CONVERSACION INADECUADA": 0 if ram == 0 else "",
+        "CONTRAINDICACION": 0 if ram == 0 else "",
+        "DOSIS PAUTAS": 0 if ram == 0 else "",
+        "DUPLICIDAD": 0 if ram == 0 else "",
+        "ERRROES EN LA DISPENSACION": 0 if ram == 0 else "",
+        "ERRORES EN LA PRESCIRPCION": 0 if ram == 0 else "",
+        "IN CUMPLIMIENTO": 0 if ram == 0 else "",
+        "INTERACCIONES": 0 if ram == 0 else "",
+        "OTROS PROBLEMAS": 0 if ram == 0 else "",
+        "PROBAVBILIDAD DE EFECTOS ADVERSOS": 0 if ram == 0 else "",
+        "PROBLEMA DE SALUD": 0 if ram == 0 else "",
+        "OTROS": 0 if ram == 0 else ""
+    }
+
+
 
 #-------------------------------------------------------------------------------------
 
@@ -808,6 +833,7 @@ for paciente_id, paciente_info in data.items():
         "farmaco":tipo_farmaco,
         "descripcion de las molecula":descripcion_molecula,
         "RAM": ram,
+        **columnas_ram_adicionales
 
     }
 
@@ -865,7 +891,28 @@ otras_columnas = [
 ]
 
 # Concatenamos en el orden deseado: otras columnas, luego las de clasificación por enfermedades, y al final las de clinimetría
-columnas_finales = otras_columnas + columnas_clasificacion_enfermedades + columnas_clasificacion_clinimetria+ ["polimedicacion"]+["Cambio en Medicacion"]+["INICIO TRATAMIENTO  BIOLOGICO / ANTIYACK"] + ["INICIO TRATAMIENTO DMARDS"]+["ADHERENCIA MIROSKY GREEN BIOLOGICO"]+["ADHERENCIA MIROSKY GREEN JACK"]+["ADHERENCIA MIROSKY DMARDS"]+["Dispensacion parenteral"]+["Dispesacion medicamentos oral"]+["Interacciones 1si 2no"]+["interacciones mayores que requieran"]+["clasificacion relevancia"]+["mecanismo farmadinamicas"]+["farmaco"]+["descripcion de las molecula"]+["RAM"]
+columnas_finales = otras_columnas + columnas_clasificacion_enfermedades + columnas_clasificacion_clinimetria+ ["polimedicacion"]+["Cambio en Medicacion"]+["INICIO TRATAMIENTO  BIOLOGICO / ANTIYACK"] + ["INICIO TRATAMIENTO DMARDS"]+["ADHERENCIA MIROSKY GREEN BIOLOGICO"]+["ADHERENCIA MIROSKY GREEN JACK"]+["ADHERENCIA MIROSKY DMARDS"]+["Dispensacion parenteral"]+["Dispesacion medicamentos oral"]+["Interacciones 1si 2no"]+["interacciones mayores que requieran"]+["clasificacion relevancia"]+["mecanismo farmadinamicas"]+["farmaco"]+["descripcion de las molecula"]+["RAM"]+[  # Aquí agregas todas las columnas nuevas
+        "MEDICAMENTO_SOSPECHOSO",
+        "ESTADO ACUTAL RAM",
+        "0NO 2 SI",
+        "TIPO",
+        "DEFINIDO POR COMITE FV",
+        "0 NO 1 SI",
+        "ADMINISTRACION ERRONEA DEL MEDICAMENTO",
+        "CARACTERISTICAS PERSONALES",
+        "CONVERSACION INADECUADA",
+        "CONTRAINDICACION",
+        "DOSIS PAUTAS",
+        "DUPLICIDAD",
+        "ERRROES EN LA DISPENSACION",
+        "ERRORES EN LA PRESCIRPCION",
+        "IN CUMPLIMIENTO",
+        "INTERACCIONES",
+        "OTROS PROBLEMAS",
+        "PROBAVBILIDAD DE EFECTOS ADVERSOS",
+        "PROBLEMA DE SALUD",
+        "OTROS"
+    ]
 
 # Reordenar el DataFrame según el orden definido
 df = df[columnas_finales]
