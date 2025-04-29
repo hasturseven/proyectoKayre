@@ -1,0 +1,638 @@
+import json
+
+import pandas as pd
+import re
+from typing import List
+from datetime import datetime
+
+
+# Cargar los datos desde el archivo JSON
+with open("datos_pacientes222.json", "r", encoding="utf-8") as file:
+    data = json.load(file)
+
+# Lista para almacenar los datos de cada paciente
+pacientes_data = []
+
+# Diccionario de categorías de enfermedades
+categorias = {
+    "1. Enfermedad cardiovascular": ["cardiovascular", "infarto", "angina", "coronaria", "hta"],
+    "2. Hipertensión arterial": ["hipertensión", "hipertension", "hta"],
+    "3. Diabetes mellitus": ["diabetes"],
+    "4. Enfermedad renal": ["renal", "riñón", "insuficiencia renal", "nefropatía"],
+    "5. Enfermedad hepatica": ["hepática", "hígado", "cirrosis", "esteatosis"],
+    "6. Osteoporosis/ Artrosis/ Osteoartrosis": ["osteoporosis", "artrosis", "osteoartrosis", "coxartrosis",
+                                                 "gonartrosis"],
+    "7. Enfermedad gastrointestinal": ["gastro", "colon", "gastritis", "úlceras", "gastrointestinal", "reflujo",
+                                       "sucralfato"],
+    "8. Hipotiroidismo/Hipertiroidismo": ["hipotiroidismo", "hipertiroidismo", "tiroid"],
+    "9. Cancer": ["cáncer", "tumor", "neoplasia", "carcinoma"]
+}
+
+
+def clasificar_clinimetria(tipo, valor):
+    """
+    Recibe el tipo de clinimetría ('das28', 'sledai', 'asdas') y su valor numérico,
+    y devuelve una tupla con los valores correspondientes para cada columna.
+    """
+    das28, sledai, asdas = 0, 0, 0
+
+    if tipo == "das28":
+        if valor < 2.6:
+            das28 = 1
+        elif valor < 3.2:
+            das28 = 2
+        elif valor < 5.1:
+            das28 = 3
+        else:
+            das28 = 4
+
+    elif tipo == "sledai":
+        if valor == 0:
+            sledai = 0
+        elif valor <= 5:
+            sledai = 1
+        elif valor <= 10:
+            sledai = 2
+        elif valor <= 19:
+            sledai = 3
+        else:
+            sledai = 4
+
+    elif tipo == "asdas":
+        if valor < 1.3:
+            asdas = 1
+        elif valor < 2.1:
+            asdas = 2
+        elif valor < 3.5:
+            asdas = 3
+        else:
+            asdas = 4
+    else:
+        sledai = 0
+        asdas = 0
+        das28 = 0
+
+    return das28, sledai, asdas
+
+
+
+
+# Tu función de extracción de fechas
+import re
+from typing import List
+
+def extraer_fechas(texto: str, fecha_actual: str) -> List[str]:
+    """
+    Extrae fechas de un texto clínico, evitando confundirlas con dosis.
+    Si el texto contiene la frase 'aún no iniciado' o 'aun no iniciado',
+    añade la fecha_actual como indicativo de inicio del tratamiento.
+    """
+
+    # Patrones para detectar formatos válidos de fechas
+    patrones = [
+        r'\b(0[1-9]|[12][0-9]|3[01])[/-](0[1-9]|1[0-2])[/-](\d{2}|\d{4})\b',  # dd/mm/aa o dd-mm-aaaa
+        r'\b(0[1-9]|1[0-2])[/-](\d{2}|\d{4})\b',                             # mm/aa o mm/aaaa
+        r'\b(19|20)\d{2}\b',                                                # años: 2014, 2025
+    ]
+
+    # Patrones que deben excluirse (dosis como 1500/400 mg)
+    patrones_exclusion = [
+        r'\b\d{2,4}/\d{2,4}\s*(mg|ui|mg\/día|mg\/semana)?\b',
+        r'\b\d{1,4}\s*(mg|ui|mg\/día|mg\/semana)\b',
+    ]
+
+    fechas_encontradas = []
+
+    # Si el tratamiento no ha iniciado aún, se toma la fecha actual como fecha de inicio
+    if re.search(r'\ba[uú]n\s+no(\s+ha)?\s+iniciado\b', texto, flags=re.IGNORECASE):
+        fechas_encontradas.append(fecha_actual)
+
+    # Buscar fechas reales y filtrar las que no son dosis
+    for patron in patrones:
+        for match in re.finditer(patron, texto, flags=re.IGNORECASE):
+            posible_fecha = match.group()
+            if not any(re.search(p_exc, posible_fecha, re.IGNORECASE) for p_exc in patrones_exclusion):
+                fechas_encontradas.append(posible_fecha)
+
+    return fechas_encontradas
+def clasificar_fecha_tratamiento(fechas: List[str], fecha_actual_str: str) -> int:
+    """
+    Clasifica fechas en base a la más reciente:
+    - 0 si no hay fechas válidas
+    - 4 si la diferencia con la fecha actual es < 6 meses
+    - 3 si la diferencia es entre 6 y < 12 meses
+    - 1 si es 12 meses o más
+    """
+
+    if not fechas:
+        return 0
+
+    # Convertimos la fecha actual
+    try:
+        fecha_actual = datetime.strptime(fecha_actual_str, "%d-%m-%Y")
+    except ValueError:
+        print("⚠️ Fecha actual con formato incorrecto")
+        return 0
+
+    fechas_convertidas = []
+
+    for fecha_str in fechas:
+        fecha_str = fecha_str.strip()
+        fecha = None
+
+        # Intentamos distintos formatos
+        formatos = [
+            "%d/%m/%Y", "%d-%m-%Y",   # día completo
+            "%d/%m/%y", "%d-%m-%y",   # día completo corto
+            "%m/%Y", "%m-%Y",         # mes/año completo
+            "%m/%y", "%m-%y",         # mes/año corto
+            "%Y",                     # solo año completo
+            "%y"                      # solo año corto
+        ]
+
+        for fmt in formatos:
+            try:
+                fecha = datetime.strptime(fecha_str, fmt)
+                break
+            except ValueError:
+                continue
+
+        # Si es solo año (ej: 25), lo interpretamos como 2025
+        if fecha is None and re.match(r"^\d{2}$", fecha_str):
+            year = int(fecha_str)
+            year += 2000 if year < 50 else 1900
+            fecha = datetime(year, 1, 1)
+
+        if fecha:
+            fechas_convertidas.append(fecha)
+
+    if not fechas_convertidas:
+        return 0
+
+    # Usamos la fecha más reciente
+    fecha_mas_reciente = max(fechas_convertidas)
+
+    # Calcular diferencia en meses
+    diferencia_meses = (fecha_actual.year - fecha_mas_reciente.year) * 12 + (fecha_actual.month - fecha_mas_reciente.month)
+
+    # Clasificación según la diferencia
+    if diferencia_meses < 6:
+        return 4
+    elif diferencia_meses < 12:
+        return 3
+    else:
+        return 1
+
+def evaluar_tratamiento_con_fecha_biologico_yak(texto: str, fecha_actual_str: str ) -> int:
+    medicamentos_interes = [
+        "etanercept", "adalimumab", "rituximab", "tocilizumab", "abatacept",
+        "infliximab", "golimumab", "certolizumab", "secukinumab", "belimumab",
+        "tofacitinib", "baricitinib", "upadacitinib"
+    ]
+
+    if not isinstance(texto, str):
+        return 0
+
+    texto = texto.lower()
+
+    # Convertimos la fecha actual
+    try:
+        fecha_actual = datetime.strptime(fecha_actual_str, "%d-%m-%Y")
+    except ValueError:
+        print("⚠️ Fecha actual con formato incorrecto")
+        return 0
+
+    tratamientos = re.split(r'[\n,*\-•]+', texto)
+    tratamientos = [t.strip() for t in tratamientos if t.strip()]
+
+    fechas_convertidas = []
+
+    for item in tratamientos:
+        for med in medicamentos_interes:
+            if med in item:
+                # Intentar extraer fechas desde el texto del tratamiento
+                patrones = [
+                    r'\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}',  # 12/04/2023 o 12-04-2023
+                    r'\b\d{1,2}[/-]\d{2}',               # 04/23
+                    r'\b\d{4}\b',                        # Año completo
+                    r'\b\d{2}\b'                         # Año corto (p. ej. 25)
+                ]
+                fechas_encontradas = []
+                for patron in patrones:
+                    fechas_encontradas += re.findall(patron, item)
+
+                # Intentar convertir fechas
+                for fecha_str in fechas_encontradas:
+                    fecha_str = fecha_str.strip()
+                    fecha = None
+                    formatos = [
+                        "%d/%m/%Y", "%d-%m-%Y",
+                        "%d/%m/%y", "%d-%m-%y",
+                        "%m/%Y", "%m-%Y",
+                        "%m/%y", "%m-%y",
+                        "%Y", "%y"
+                    ]
+                    for fmt in formatos:
+                        try:
+                            fecha = datetime.strptime(fecha_str, fmt)
+                            break
+                        except ValueError:
+                            continue
+                    if fecha is None and re.match(r"^\d{2}$", fecha_str):
+                        year = int(fecha_str)
+                        year += 2000 if year < 50 else 1900
+                        fecha = datetime(year, 1, 1)
+                    if fecha:
+                        fechas_convertidas.append(fecha)
+
+    if not fechas_convertidas:
+        # Hay medicamento pero sin fecha
+        if any(med in item for item in tratamientos for med in medicamentos_interes):
+            return 1
+        else:
+            return 0
+
+    # Usamos la fecha más reciente
+    fecha_mas_reciente = max(fechas_convertidas)
+    diferencia_meses = (fecha_actual.year - fecha_mas_reciente.year) * 12 + (fecha_actual.month - fecha_mas_reciente.month)
+
+    if diferencia_meses < 3:
+        return 4
+    elif diferencia_meses < 6:
+        return 3
+    elif diferencia_meses < 12:
+        return 1
+    else:
+        return 1
+
+#evaluacio ntratamiendo dmards
+
+
+
+def evaluar_tratamiento_con_fecha_dmards(texto: str, fecha_actual_str: str) -> int:
+    medicamentos_interes = [
+        "leflunomida", "LEFLUNOMIDA", "Leflunomida",
+        "Metotrexato", "Cloroquina", "Sulfasalazina", "Prednisolona",
+        "Azatioprina", "Hidroxicloroquina", "Daflazacort",
+        "METOTREXATE", "Metrotexate",
+        "LEFLUNOMIDE", "Leflunomide"
+    ]
+
+    if not isinstance(texto, str):
+        return 0
+
+    # Convertimos la fecha actual
+    try:
+        fecha_actual = datetime.strptime(fecha_actual_str, "%d-%m-%Y")
+    except ValueError:
+        print("⚠️ Fecha actual con formato incorrecto")
+        return 0
+
+    tratamientos = re.split(r'[\n,*\-•]+', texto)
+    tratamientos = [t.strip() for t in tratamientos if t.strip()]
+
+    fechas_convertidas = []
+
+    for item in tratamientos:
+        item_lower = item.lower()  # convertimos la línea actual a minúsculas
+        for med in medicamentos_interes:
+            if med.lower() in item_lower:
+                # Intentar extraer fechas desde el texto del tratamiento
+                patrones = [
+                    r'\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}',  # 12/04/2023 o 12-04-2023
+                    r'\b\d{1,2}[/-]\d{2}',               # 04/23
+                    r'\b\d{4}\b',                        # Año completo
+                    r'\b\d{2}\b'                         # Año corto (p. ej. 25)
+                ]
+                fechas_encontradas = []
+                for patron in patrones:
+                    fechas_encontradas += re.findall(patron, item)
+
+                # Intentar convertir fechas
+                for fecha_str in fechas_encontradas:
+                    fecha_str = fecha_str.strip()
+                    fecha = None
+                    formatos = [
+                        "%d/%m/%Y", "%d-%m-%Y",
+                        "%d/%m/%y", "%d-%m-%y",
+                        "%m/%Y", "%m-%Y",
+                        "%m/%y", "%m-%y",
+                        "%Y", "%y"
+                    ]
+                    for fmt in formatos:
+                        try:
+                            fecha = datetime.strptime(fecha_str, fmt)
+                            break
+                        except ValueError:
+                            continue
+                    if fecha is None and re.match(r"^\d{2}$", fecha_str):
+                        year = int(fecha_str)
+                        year += 2000 if year < 50 else 1900
+                        fecha = datetime(year, 1, 1)
+
+                    # ✅ Validación del rango razonable de fechas
+                    if fecha and 1930 <= fecha.year <= fecha_actual.year:
+                        fechas_convertidas.append(fecha)
+
+    if not fechas_convertidas:
+        if any(med.lower() in item.lower() for item in tratamientos for med in medicamentos_interes):
+            return 1
+        else:
+            return 0
+
+    fecha_mas_reciente = max(fechas_convertidas)
+    diferencia_meses = (fecha_actual.year - fecha_mas_reciente.year) * 12 + (fecha_actual.month - fecha_mas_reciente.month)
+
+    if diferencia_meses <= 3:
+        return 4
+    elif diferencia_meses <= 6:
+        return 3
+    elif diferencia_meses <= 12:
+        return 1
+    else:
+        return 1
+
+
+
+
+
+for paciente_id, paciente_info in data.items():
+    if not isinstance(paciente_info, dict):
+        continue
+
+    nombre = str(paciente_info.get("nombre", "")).strip()
+
+    # Edad y tipo identificación
+    edad = paciente_info.get("edad")
+    if isinstance(edad, int):
+        tipo_identificacion = 1 if edad >= 18 else 2
+    else:
+        edad = None
+        tipo_identificacion = None
+
+    escolaridad = str(paciente_info.get("nivel_escolaridad", "")).strip()
+
+    # Género: 1 = femenino, 2 = masculino, 0 = desconocido
+    observaciones = str(paciente_info.get("observaciones", "")).strip().upper()
+    if "FEMENINO" in observaciones:
+        genero = 1
+    elif "MASCULINO" in observaciones:
+        genero = 2
+    else:
+        genero = 0
+
+    # Gestación: 0 para todos
+    gestacion = 0
+
+    # Consumo de SPA: verificamos alcohol, tabaco, sustancias
+    alcohol = str(paciente_info.get("consumo_alcohol", "")).strip().strip('"').upper()
+    tabaco = str(paciente_info.get("consumo_tabaco", "")).strip().strip('"').upper()
+    sustancias = str(paciente_info.get("consumo_sustancias", "")).strip().strip('"').upper()
+
+    if alcohol == "NIEGA" and tabaco == "NIEGA" and sustancias == "NIEGA":
+        consumo_spa = 0
+    elif tabaco != "NIEGA":
+        consumo_spa = 1
+    elif alcohol != "NIEGA":
+        consumo_spa = 2
+    elif sustancias != "NIEGA":
+        consumo_spa = 3
+    else:
+        consumo_spa = 0
+
+    # Columna vacía de interacción alcohol/drogas
+    interaccion_medicamento = ""
+
+    # Trastornos mentales: 0 para todos
+    trastornos_mentales = 0
+
+    # Factores trato paciente: 0 para todos
+    trato_paciente = 0
+
+    # Hospitalización últimos 6 meses
+    hospitalizacion_6_meses = str(paciente_info.get("hospitalizacion_ultimos_6_meses", "")).strip().lower()
+    if hospitalizacion_6_meses in ["no", "no especificado"]:
+        ultimos_6_meses = 0
+    else:
+        ultimos_6_meses = 4
+
+    # Clasificación de enfermedades
+    otro_diag = str(paciente_info.get("otro_diagnostico", "")).lower()
+    clasificacion = {key: 0 for key in categorias}
+    otros_enfermedades = []
+
+    for enfermedad in re.split(r'[;,.\n]+', otro_diag):
+        enfermedad = enfermedad.strip()
+        clasificada = False
+        for categoria, palabras in categorias.items():
+            if any(p in enfermedad for p in palabras):
+                clasificacion[categoria] = 1
+                clasificada = True
+                break
+        if enfermedad and not clasificada and enfermedad != "niega":
+            otros_enfermedades.append(enfermedad)
+
+    # -------------------------
+    # COMORBILIDADES (categorías del 1 al 9)
+    comorbilidades = sum(clasificacion[c] for c in list(categorias.keys()))
+    if comorbilidades == 1:
+        presenta_comorbilidades = 2
+    elif comorbilidades >= 2:
+        presenta_comorbilidades = 4
+    else:
+        presenta_comorbilidades = ""
+
+    # -------------------------
+    # APLICA CLINIMETRÍA
+    clinimetria_tipo = str(paciente_info.get("clinimetria_tipo", "")).strip().lower()
+    if clinimetria_tipo and clinimetria_tipo != "no aplica":
+        aplica_clinimetria = 4
+    else:
+        aplica_clinimetria = 0
+    # -------------------------
+    # COMORBILIDADES (categorías del 1 al 9)
+    comorbilidades = sum(clasificacion[c] for c in list(categorias.keys()))
+    if comorbilidades == 1:
+        presenta_comorbilidades = 2
+    elif comorbilidades >= 2:
+        presenta_comorbilidades = 4
+    else:
+        presenta_comorbilidades = ""
+
+    # -------------------------
+    # APLICA CLINIMETRÍA
+    clinimetria_tipo = str(paciente_info.get("clinimetria_tipo", "")).strip().lower()
+    if clinimetria_tipo and clinimetria_tipo != "no aplica":
+        aplica_clinimetria = 4
+    else:
+        aplica_clinimetria = 0
+
+    # === CLASIFICACIÓN DE CLINIMETRÍA ===
+    clinimetria_tipo = str(paciente_info.get("clinimetria_tipo", "")).strip().lower()
+    clinimetria_valor = paciente_info.get("clinimetria_valor", None)
+
+    # Normalizar el tipo de clinimetría
+    if "das28" in clinimetria_tipo:
+        clinimetria_tipo = "das28"
+    elif "asdas" in clinimetria_tipo:
+        clinimetria_tipo = "asdas"
+    elif "sledai" in clinimetria_tipo:
+        clinimetria_tipo = "sledai"
+    else:
+        clinimetria_tipo = ""
+
+    # Validar si el valor es un número
+    try:
+        clinimetria_valor = float(clinimetria_valor)
+    except (ValueError, TypeError):
+        clinimetria_valor = None
+
+    # Clasificar sólo si tenemos tipo válido y valor numérico
+    if clinimetria_tipo and clinimetria_valor is not None:
+        das28_clasificacion, sledai_clasificacion, asdas_clasificacion = clasificar_clinimetria(clinimetria_tipo,
+                                                                                                clinimetria_valor)
+    else:
+        das28_clasificacion = sledai_clasificacion = asdas_clasificacion = 0
+
+    # ------------------------------------
+    # CAMBIO EN LA MEDICACIÓN (columna nueva)
+
+    # CAMBIO EN LA MEDICACIÓN (columna nueva)
+
+    # Extraer campos de tratamiento
+    tratamiento_principal = str(paciente_info.get("tratamiento_principal", "")).lower().replace("vita d", "vitamina d")
+    conciliacion_meds = str(paciente_info.get("conciliacion_medicamentos", "")).lower().replace("vita d", "vitamina d")
+
+    # Unir textos
+    todos_meds = f"{tratamiento_principal}\n{conciliacion_meds}"
+
+    # Separar solo por saltos de línea y comas (indicadores de medicamentos distintos)
+
+    meds_separados = re.split(r'[\n,]', todos_meds)
+
+    # Limpiar y mantener medicamentos que contienen '+', ya que son compuestos
+    lista_meds = [med.strip() for med in meds_separados if med.strip()]
+    print("MEDICAMENTOS:", lista_meds)
+
+    # Extraer el nombre base del medicamento (primeras dos palabras por seguridad)
+    nombres_base = set()
+    for med in lista_meds:
+        palabras = med.split()
+        if len(palabras) >= 2:
+            nombre_base = " ".join(palabras[:2])
+        elif palabras:
+            nombre_base = palabras[0]
+        else:
+            continue
+        nombres_base.add(nombre_base)
+
+    # Evaluar cuántos medicamentos únicos hay
+    polimedicacion = 4 if len(nombres_base) >= 5 else 0
+
+    #-------------------------- mirar la fecha de los medicamentos
+    # Extraer campos de tratamiento
+    tratamiento_principal = str(paciente_info.get("tratamiento_principal", "")).lower().replace("vita d", "vitamina d")
+    fecha_actual=str(paciente_info.get("fecha_consulta", "")).lower()
+    # Extraer fechas del texto de tratamiento
+    fechas_tratamiento = extraer_fechas(tratamiento_principal,fecha_actual)
+    print("Fechas encontradas:", fechas_tratamiento)
+
+    cambio_en_medicacion=clasificar_fecha_tratamiento(fechas_tratamiento,fecha_actual)
+#--------------------------------------------------------------------------
+
+    #EVALUAR INICIO BIOLOGICO YACK DMARDS ----------------------------------------------
+
+    tratamiento_principal = str(paciente_info.get("tratamiento_principal", "")).lower().replace("vita d", "vitamina d")
+    inicio_tratamiendo_biologico_yack=evaluar_tratamiento_con_fecha_biologico_yak(tratamiento_principal,fecha_actual)
+    #EVALUAR DEMARDS
+    inicio_tratamiendo_demards=evaluar_tratamiento_con_fecha_dmards(tratamiento_principal,fecha_actual)
+#------------------------------------------------------------------
+    # Guardar los datos del paciente
+    fila_paciente = {
+        "Nombre": nombre,
+        "Tipo Identificación": tipo_identificacion,
+        "Edad": edad,
+        "Grado Escolaridad": escolaridad,
+        "Género": genero,
+        "Gestación": gestacion,
+        "Consumo de SPA": consumo_spa,
+        "4. Consumo de alcohol o drogas que interacciona con medicamento": interaccion_medicamento,
+        "Trastornos mentales": trastornos_mentales,
+        "Factores relacionados con el trato paciente": trato_paciente,
+        "hospitalizacion ultimos 6 meses": ultimos_6_meses,
+        "10. Otros": 1 if otros_enfermedades else 0,
+        "¿Cuáles otras?": ", ".join(otros_enfermedades),
+        "4. Presenta más de 2 comorbilidades de la lista \n2. Presenta 1 comorbilidad de la lista": presenta_comorbilidades,
+        "APLICA CLINIMETRÍA\n0. No, requiere de otro parametro\n4. Si, pero es > a 2 meses": aplica_clinimetria,
+        "das28_clasificacion": das28_clasificacion,
+        "sledai_clasificacion": sledai_clasificacion,
+        "asdas_clasificacion": asdas_clasificacion,
+        "polimedicacion": polimedicacion,
+        "Cambio en Medicacion":cambio_en_medicacion,
+        "INICIO TRATAMIENTO  BIOLOGICO / ANTIYACK": inicio_tratamiendo_biologico_yack,
+        "INICIO TRATAMIENTO DMARDS":inicio_tratamiendo_demards
+
+    }
+
+    # Agregar columnas de clasificación
+    fila_paciente.update(clasificacion)
+
+    # Añadir al conjunto de datos
+    pacientes_data.append(fila_paciente)
+
+# Ordenar las columnas
+columnas_ordenadas = [
+    "1. Enfermedad cardiovascular",
+    "2. Hipertensión arterial",
+    "3. Diabetes mellitus",
+    "4. Enfermedad renal",
+    "5. Enfermedad hepatica",
+    "6. Osteoporosis/ Artrosis/ Osteoartrosis",
+    "7. Enfermedad gastrointestinal",
+    "8. Hipotiroidismo/Hipertiroidismo",
+    "9. Cancer",
+    "10. Otros",
+    "¿Cuáles otras?",
+    "4. Presenta más de 2 comorbilidades de la lista \n2. Presenta 1 comorbilidad de la lista",
+    "APLICA CLINIMETRÍA\n0. No, requiere de otro parametro\n4. Si, pero es > a 2 meses"
+]
+# Crear DataFrame
+df = pd.DataFrame(pacientes_data)
+
+# Ordenar las columnas
+columnas_clasificacion_enfermedades = [
+    "1. Enfermedad cardiovascular",
+    "2. Hipertensión arterial",
+    "3. Diabetes mellitus",
+    "4. Enfermedad renal",
+    "5. Enfermedad hepatica",
+    "6. Osteoporosis/ Artrosis/ Osteoartrosis",
+    "7. Enfermedad gastrointestinal",
+    "8. Hipotiroidismo/Hipertiroidismo",
+    "9. Cancer",
+    "10. Otros",
+    "¿Cuáles otras?",
+    "4. Presenta más de 2 comorbilidades de la lista \n2. Presenta 1 comorbilidad de la lista",
+    "APLICA CLINIMETRÍA\n0. No, requiere de otro parametro\n4. Si, pero es > a 2 meses"
+]
+columnas_clasificacion_clinimetria = [
+    "das28_clasificacion",
+    "sledai_clasificacion",
+    "asdas_clasificacion"
+]
+
+# Detectamos las demás columnas (como nombre, edad, etc.), excluyendo las ya ordenadas
+otras_columnas = [
+    col for col in df.columns
+    if col not in columnas_clasificacion_enfermedades + columnas_clasificacion_clinimetria
+]
+
+# Concatenamos en el orden deseado: otras columnas, luego las de clasificación por enfermedades, y al final las de clinimetría
+columnas_finales = otras_columnas + columnas_clasificacion_enfermedades + columnas_clasificacion_clinimetria+ ["polimedicacion"]+["Cambio en Medicacion"]+["INICIO TRATAMIENTO  BIOLOGICO / ANTIYACK"] + ["INICIO TRATAMIENTO DMARDS"]
+
+# Reordenar el DataFrame según el orden definido
+df = df[columnas_finales]
+
+# Guardar a Excel
+df.to_excel("pacientes_detallado.xlsx", index=False)
+
