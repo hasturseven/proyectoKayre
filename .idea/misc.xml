@@ -3,4 +3,5 @@
   <component name="Black">
     <option name="sdkName" value="Liz" />
   </component>
+  <component name="ProjectRootManager" version="2" project-jdk-name="cienciaDatos" project-jdk-type="Python SDK" />
 </project>

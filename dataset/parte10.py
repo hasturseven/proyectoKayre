@@ -733,7 +733,42 @@ for paciente_id, paciente_info in data.items():
             valor_dispensacion = 0  # Puedes poner -1 para casos no contemplados
             parenteral = 0
 
+#--------------------- INTERACCIOENS SI NO ---------------------------
+    texto = str(paciente_info.get("interacciones_farmacologicas", "")).lower()
 
+    # Lista de medicamentos clave en minúsculas
+    medicamentos_clave = [
+        "leflunomida", "metotrexato", "cloroquina", "sulfasalazina", "prednisolona",
+        "azatioprina", "hidroxicloroquina", "daflazacort", "etoricoxib", "etanercept",
+        "adalimumab", "rituximab", "tocilizumab", "abatacept", "infliximab",
+        "golimumab", "certolizumab", "secukinumab", "belimumab"
+    ]
+
+    # Buscar texto después de "significativas:" o "significativa:"
+    match = re.search(r'significativas?:\s*(.*)', texto)
+    contenido = match.group(1).strip() if match else ""
+
+    if "ninguna" in contenido or contenido == "":
+        interacciones = 0
+        interacciones_mayores = 0
+        clasificacion_relevancia = 0
+        mecanismo = 0
+        descripcion_molecula = ""
+    else:
+        interacciones = 1
+        # Filtrar medicamentos presentes en el contenido
+        descripcion_molecula = "; ".join([
+            med.capitalize() for med in medicamentos_clave if med in contenido
+        ])
+
+        interacciones_mayores = 2
+        clasificacion_relevancia = 3
+        mecanismo = 1 if descripcion_molecula else 2
+    #--------------------colimna de tipo farmaco siemroe es 1
+    tipo_farmaco=1
+    #-.--------------------------- RAM
+    texto=str(paciente_info.get("ram")).lower()
+    ram = 0 if "niega" in texto else 1
 
 #-------------------------------------------------------------------------------------
 
@@ -766,6 +801,13 @@ for paciente_id, paciente_info in data.items():
         "ADHERENCIA MIROSKY DMARDS":DMARDS_ADHERENCIA_MIROSKY,
         "Dispensacion parenteral":parenteral,
         "Dispesacion medicamentos oral": valor_dispensacion,
+        "Interacciones 1si 2no":interacciones,
+        "interacciones mayores que requieran":interacciones_mayores,
+        "clasificacion relevancia":clasificacion_relevancia,
+        "mecanismo farmadinamicas":mecanismo,
+        "farmaco":tipo_farmaco,
+        "descripcion de las molecula":descripcion_molecula,
+        "RAM": ram,
 
     }
 
@@ -819,15 +861,42 @@ columnas_clasificacion_clinimetria = [
 # Detectamos las demás columnas (como nombre, edad, etc.), excluyendo las ya ordenadas
 otras_columnas = [
     col for col in df.columns
-    if col not in columnas_clasificacion_enfermedades + columnas_clasificacion_clinimetria
+    if col not in columnas_clasificacion_enfermedades + ["RAM"]
 ]
 
 # Concatenamos en el orden deseado: otras columnas, luego las de clasificación por enfermedades, y al final las de clinimetría
-columnas_finales = otras_columnas + columnas_clasificacion_enfermedades + columnas_clasificacion_clinimetria+ ["polimedicacion"]+["Cambio en Medicacion"]+["INICIO TRATAMIENTO  BIOLOGICO / ANTIYACK"] + ["INICIO TRATAMIENTO DMARDS"]+["ADHERENCIA MIROSKY GREEN BIOLOGICO"]+["ADHERENCIA MIROSKY GREEN JACK"]+["ADHERENCIA MIROSKY DMARDS"]+["Dispensacion parenteral"]+["Dispesacion medicamentos oral"]
+columnas_finales = otras_columnas + columnas_clasificacion_enfermedades + columnas_clasificacion_clinimetria+ ["polimedicacion"]+["Cambio en Medicacion"]+["INICIO TRATAMIENTO  BIOLOGICO / ANTIYACK"] + ["INICIO TRATAMIENTO DMARDS"]+["ADHERENCIA MIROSKY GREEN BIOLOGICO"]+["ADHERENCIA MIROSKY GREEN JACK"]+["ADHERENCIA MIROSKY DMARDS"]+["Dispensacion parenteral"]+["Dispesacion medicamentos oral"]+["Interacciones 1si 2no"]+["interacciones mayores que requieran"]+["clasificacion relevancia"]+["mecanismo farmadinamicas"]+["farmaco"]+["descripcion de las molecula"]+["RAM"]
 
 # Reordenar el DataFrame según el orden definido
 df = df[columnas_finales]
 
 # Guardar a Excel
 df.to_excel("pacientes_detallado.xlsx", index=False)
+# ------------------------------------------
+# Aplicar formato rojo si RAM == 1
+# ------------------------------------------
+from openpyxl import load_workbook
+from openpyxl.styles import PatternFill
+
+# Abrir el archivo recién guardado
+archivo = "pacientes_detallado.xlsx"
+libro = load_workbook(archivo)
+hoja = libro.active
+
+# Buscar la columna "RAM"
+columna_ram = None
+for col in range(1, hoja.max_column + 1):
+    if hoja.cell(row=1, column=col).value == "RAM":
+        columna_ram = col
+        break
+
+# Aplicar color rojo si RAM == 1
+if columna_ram:
+    for fila in range(2, hoja.max_row + 1):
+        celda = hoja.cell(row=fila, column=columna_ram)
+        if celda.value == 1:
+            celda.fill = PatternFill(start_color="FF0000", end_color="FF0000", fill_type="solid")
+
+# Guardar cambios
+libro.save(archivo)
 
