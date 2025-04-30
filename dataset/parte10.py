@@ -27,8 +27,36 @@ categorias = {
     "8. Hipotiroidismo/Hipertiroidismo": ["hipotiroidismo", "hipertiroidismo", "tiroid"],
     "9. Cancer": ["cáncer", "tumor", "neoplasia", "carcinoma"]
 }
+#clasificar por profesion----------------
+def clasificar_escolaridad(escolaridad_raw):
+    escolaridad_raw = str(escolaridad_raw).lower().strip()
 
+    # Correcciones manuales comunes
+    escolaridad_raw = escolaridad_raw.replace("ptofesional", "profesional")
+    escolaridad_raw = escolaridad_raw.replace("bachillera", "bachillerato")
 
+    # Eliminar entradas de ocupación
+    if "ocupación" in escolaridad_raw:
+        return 2  # Asumimos bachillerato
+
+    if "analfabeta" in escolaridad_raw:
+        return 4
+    elif "primaria" in escolaridad_raw:
+        return 3
+    elif "bachiller" in escolaridad_raw:
+        return 2
+    elif "técnico" in escolaridad_raw or "tecnico" in escolaridad_raw:
+        return 1
+    elif "tecnólogo" in escolaridad_raw or "tecnologo" in escolaridad_raw:
+        return 1
+    elif "profesional" in escolaridad_raw:
+        return 0
+    elif "maestría" in escolaridad_raw or "maestria" in escolaridad_raw or "posgrado" in escolaridad_raw:
+        return 0
+    else:
+        return 2  # Default conservador: bachillerato
+
+#-----------------------------clasificar clinimetria-------------
 def clasificar_clinimetria(tipo, valor):
     """
     Recibe el tipo de clinimetría ('das28', 'sledai', 'asdas') y su valor numérico,
@@ -522,8 +550,8 @@ for paciente_id, paciente_info in data.items():
         edad = None
         tipo_identificacion = None
 
-    escolaridad = str(paciente_info.get("nivel_escolaridad", "")).strip()
-
+    toma_escolaridad = str(paciente_info.get("nivel_escolaridad", "")).strip()
+    escolaridad=clasificar_escolaridad(toma_escolaridad)
     # Género: 1 = femenino, 2 = masculino, 0 = desconocido
     observaciones = str(paciente_info.get("observaciones", "")).strip().upper()
     if "FEMENINO" in observaciones:
@@ -531,7 +559,7 @@ for paciente_id, paciente_info in data.items():
     elif "MASCULINO" in observaciones:
         genero = 2
     else:
-        genero = 0
+        genero = 1
 
     # Gestación: 0 para todos
     gestacion = 0
@@ -553,7 +581,7 @@ for paciente_id, paciente_info in data.items():
         consumo_spa = 0
 
     # Columna vacía de interacción alcohol/drogas
-    interaccion_medicamento = ""
+    interaccion_medicamento =0
 
     # Trastornos mentales: 0 para todos
     trastornos_mentales = 0
@@ -887,7 +915,7 @@ columnas_clasificacion_clinimetria = [
 # Detectamos las demás columnas (como nombre, edad, etc.), excluyendo las ya ordenadas
 otras_columnas = [
     col for col in df.columns
-    if col not in columnas_clasificacion_enfermedades + ["RAM"]
+    if col not in   ["RAM"]
 ]
 
 # Concatenamos en el orden deseado: otras columnas, luego las de clasificación por enfermedades, y al final las de clinimetría
