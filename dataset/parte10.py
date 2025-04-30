@@ -15,18 +15,44 @@ pacientes_data = []
 
 # Diccionario de categorías de enfermedades
 categorias = {
-    "1. Enfermedad cardiovascular": ["cardiovascular", "infarto", "angina", "coronaria", "hta"],
-    "2. Hipertensión arterial": ["hipertensión", "hipertension", "hta"],
-    "3. Diabetes mellitus": ["diabetes"],
-    "4. Enfermedad renal": ["renal", "riñón", "insuficiencia renal", "nefropatía"],
-    "5. Enfermedad hepatica": ["hepática", "hígado", "cirrosis", "esteatosis"],
-    "6. Osteoporosis/ Artrosis/ Osteoartrosis": ["osteoporosis", "artrosis", "osteoartrosis", "coxartrosis",
-                                                 "gonartrosis"],
-    "7. Enfermedad gastrointestinal": ["gastro", "colon", "gastritis", "úlceras", "gastrointestinal", "reflujo",
-                                       "sucralfato"],
-    "8. Hipotiroidismo/Hipertiroidismo": ["hipotiroidismo", "hipertiroidismo", "tiroid"],
-    "9. Cancer": ["cáncer", "tumor", "neoplasia", "carcinoma"]
+    "1. Enfermedad cardiovascular": [
+        "cardiovascular", "infarto", "angina", "coronaria", "hta", "hipertensión arterial", "cardiopatía",
+        "insuficiencia cardiaca", "arritmia", "taquicardia", "bradicardia", "miocardio", "ictus", "accidente cerebrovascular",
+        "acv", "trombosis", "embolia", "hipertrofia ventricular"
+    ],
+    "2. Hipertensión arterial": [
+        "hipertensión", "hipertension", "hta", "presión alta", "tensión alta", "crisis hipertensiva"
+    ],
+    "3. Diabetes mellitus": [
+        "diabetes", "hiperglucemia", "glucosa alta", "glucemia elevada", "resistencia a la insulina"
+    ],
+    "4. Enfermedad renal": [
+        "renal", "riñón", "insuficiencia renal", "nefropatía", "hemodiálisis", "diálisis", "litiasis renal",
+        "cálculos renales", "proteinuria", "glomerulonefritis", "pielonefritis"
+    ],
+    "5. Enfermedad hepatica": [
+        "hepática", "hígado", "cirrosis", "esteatosis", "hígado graso", "hepatitis", "transaminasas elevadas",
+        "insuficiencia hepática", "colestasis", "fibrosis hepática"
+    ],
+    "6. Osteoporosis/ Artrosis/ Osteoartrosis": [
+        "osteoporosis", "artrosis", "osteoartrosis", "coxartrosis", "gonartrosis", "desgaste articular",
+        "dolor articular", "degeneración ósea", "fractura osteoporótica"
+    ],
+    "7. Enfermedad gastrointestinal": [
+        "gastro", "colon", "gastritis", "úlceras", "gastrointestinal", "reflujo", "esofagitis", "colitis",
+        "estreñimiento", "diarrea crónica", "síndrome de intestino irritable", "enfermedad de crohn",
+        "rectocolitis", "pancreatitis", "helicobacter", "sucralfato"
+    ],
+    "8. Hipotiroidismo/Hipertiroidismo": [
+        "hipotiroidismo", "hipertiroidismo", "tiroid", "tiroides", "bocio", "nódulo tiroideo", "hashimoto",
+        "graves", "trastornos tiroideos"
+    ],
+    "9. Cancer": [
+        "cáncer", "tumor", "neoplasia", "carcinoma", "adenocarcinoma", "linfoma", "melanoma", "leucemia",
+        "sarcoma", "neoplasias", "cáncer de", "metástasis"
+    ]
 }
+
 #clasificar por profesion----------------
 def clasificar_escolaridad(escolaridad_raw):
     escolaridad_raw = str(escolaridad_raw).lower().strip()
@@ -838,6 +864,16 @@ for paciente_id, paciente_info in data.items():
         "Trastornos mentales": trastornos_mentales,
         "Factores relacionados con el trato paciente": trato_paciente,
         "hospitalizacion ultimos 6 meses": ultimos_6_meses,
+        # Enfermedades (se asignan desde el diccionario `clasificacion`)
+        "1. Enfermedad cardiovascular": clasificacion["1. Enfermedad cardiovascular"],
+        "2. Hipertensión arterial": clasificacion["2. Hipertensión arterial"],
+        "3. Diabetes mellitus": clasificacion["3. Diabetes mellitus"],
+        "4. Enfermedad renal": clasificacion["4. Enfermedad renal"],
+        "5. Enfermedad hepatica": clasificacion["5. Enfermedad hepatica"],
+        "6. Osteoporosis/ Artrosis/ Osteoartrosis": clasificacion["6. Osteoporosis/ Artrosis/ Osteoartrosis"],
+        "7. Enfermedad gastrointestinal": clasificacion["7. Enfermedad gastrointestinal"],
+        "8. Hipotiroidismo/Hipertiroidismo": clasificacion["8. Hipotiroidismo/Hipertiroidismo"],
+        "9. Cancer": clasificacion["9. Cancer"],
         "10. Otros": 1 if otros_enfermedades else 0,
         "¿Cuáles otras?": ", ".join(otros_enfermedades),
         "4. Presenta más de 2 comorbilidades de la lista \n2. Presenta 1 comorbilidad de la lista": presenta_comorbilidades,
@@ -871,55 +907,14 @@ for paciente_id, paciente_info in data.items():
     # Añadir al conjunto de datos
     pacientes_data.append(fila_paciente)
 
-# Ordenar las columnas
-columnas_ordenadas = [
-    "1. Enfermedad cardiovascular",
-    "2. Hipertensión arterial",
-    "3. Diabetes mellitus",
-    "4. Enfermedad renal",
-    "5. Enfermedad hepatica",
-    "6. Osteoporosis/ Artrosis/ Osteoartrosis",
-    "7. Enfermedad gastrointestinal",
-    "8. Hipotiroidismo/Hipertiroidismo",
-    "9. Cancer",
-    "10. Otros",
-    "¿Cuáles otras?",
-    "4. Presenta más de 2 comorbilidades de la lista \n2. Presenta 1 comorbilidad de la lista",
-    "APLICA CLINIMETRÍA\n0. No, requiere de otro parametro\n4. Si, pero es > a 2 meses"
-]
+
 # Crear DataFrame
 df = pd.DataFrame(pacientes_data)
 
 # Ordenar las columnas
-columnas_clasificacion_enfermedades = [
-    "1. Enfermedad cardiovascular",
-    "2. Hipertensión arterial",
-    "3. Diabetes mellitus",
-    "4. Enfermedad renal",
-    "5. Enfermedad hepatica",
-    "6. Osteoporosis/ Artrosis/ Osteoartrosis",
-    "7. Enfermedad gastrointestinal",
-    "8. Hipotiroidismo/Hipertiroidismo",
-    "9. Cancer",
-    "10. Otros",
-    "¿Cuáles otras?",
-    "4. Presenta más de 2 comorbilidades de la lista \n2. Presenta 1 comorbilidad de la lista",
-    "APLICA CLINIMETRÍA\n0. No, requiere de otro parametro\n4. Si, pero es > a 2 meses"
-]
-columnas_clasificacion_clinimetria = [
-    "das28_clasificacion",
-    "sledai_clasificacion",
-    "asdas_clasificacion"
-]
-
-# Detectamos las demás columnas (como nombre, edad, etc.), excluyendo las ya ordenadas
-otras_columnas = [
-    col for col in df.columns
-    if col not in   ["RAM"]
-]
 
 # Concatenamos en el orden deseado: otras columnas, luego las de clasificación por enfermedades, y al final las de clinimetría
-columnas_finales = otras_columnas + columnas_clasificacion_enfermedades + columnas_clasificacion_clinimetria+ ["polimedicacion"]+["Cambio en Medicacion"]+["INICIO TRATAMIENTO  BIOLOGICO / ANTIYACK"] + ["INICIO TRATAMIENTO DMARDS"]+["ADHERENCIA MIROSKY GREEN BIOLOGICO"]+["ADHERENCIA MIROSKY GREEN JACK"]+["ADHERENCIA MIROSKY DMARDS"]+["Dispensacion parenteral"]+["Dispesacion medicamentos oral"]+["Interacciones 1si 2no"]+["interacciones mayores que requieran"]+["clasificacion relevancia"]+["mecanismo farmadinamicas"]+["farmaco"]+["descripcion de las molecula"]+["RAM"]+[  # Aquí agregas todas las columnas nuevas
+columnas_finales = ["Nombre"]+["Tipo Identificación"]+["Edad"]+["Grado Escolaridad"]+["Género"]+["Gestación"]+["Consumo de SPA"]+["4. Consumo de alcohol o drogas que interacciona con medicamento"]+["Trastornos mentales"]+["Factores relacionados con el trato paciente"]+["hospitalizacion ultimos 6 meses"]+["1. Enfermedad cardiovascular"]+["2. Hipertensión arterial"]+["3. Diabetes mellitus"]+["4. Enfermedad renal"]+["5. Enfermedad hepatica"]+["6. Osteoporosis/ Artrosis/ Osteoartrosis"]+["7. Enfermedad gastrointestinal"]+["8. Hipotiroidismo/Hipertiroidismo"]+["9. Cancer"]+["10. Otros"]+["¿Cuáles otras?"]+["4. Presenta más de 2 comorbilidades de la lista \n2. Presenta 1 comorbilidad de la lista"]+["APLICA CLINIMETRÍA\n0. No, requiere de otro parametro\n4. Si, pero es > a 2 meses"]+["das28_clasificacion"]+["sledai_clasificacion"]+["asdas_clasificacion"] +["polimedicacion"]+["Cambio en Medicacion"]+["INICIO TRATAMIENTO  BIOLOGICO / ANTIYACK"] + ["INICIO TRATAMIENTO DMARDS"]+["ADHERENCIA MIROSKY GREEN BIOLOGICO"]+["ADHERENCIA MIROSKY GREEN JACK"]+["ADHERENCIA MIROSKY DMARDS"]+["Dispensacion parenteral"]+["Dispesacion medicamentos oral"]+["Interacciones 1si 2no"]+["interacciones mayores que requieran"]+["clasificacion relevancia"]+["mecanismo farmadinamicas"]+["farmaco"]+["descripcion de las molecula"]+["RAM"]+[  # Aquí agregas todas las columnas nuevas
         "MEDICAMENTO_SOSPECHOSO",
         "ESTADO ACUTAL RAM",
         "0NO 2 SI",
