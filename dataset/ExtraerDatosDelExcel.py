@@ -247,7 +247,7 @@ def mostrar_datos_organizados(bloques_extraidos):
 
 
 def main():
-    ruta_archivo = 'TUNJA-26-03-2025.xlsx'  # Ajusta con tu ruta
+    ruta_archivo = 'dataset\TUNJA-26-03-2025.xlsx'  # Ajusta con tu ruta
     try:
         df = pd.read_excel(ruta_archivo, header=None)
     except FileNotFoundError:
@@ -262,7 +262,7 @@ def main():
 
 
     # Guardar como JSON
-    ruta_salida = 'datos_pacientes.json'
+    ruta_salida = 'dataset\datos_pacientes.json'
     try:
         with open(ruta_salida, 'w', encoding='utf-8') as f:
             json.dump(datos_pacientes, f, ensure_ascii=False, indent=4)
