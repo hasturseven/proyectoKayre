@@ -7,7 +7,7 @@ from datetime import datetime
 
 
 # Cargar los datos desde el archivo JSON
-with open("datos_pacientes.json", "r", encoding="utf-8") as file:
+with open("DATOSJSON\datos_pacientes.json", "r", encoding="utf-8") as file:
     data = json.load(file)
 
 # Lista para almacenar los datos de cada paciente
@@ -941,7 +941,7 @@ columnas_finales = ["Nombre"]+["Tipo Identificación"]+["Edad"]+["Grado Escolari
 df = df[columnas_finales]
 
 # Guardar a Excel
-df.to_excel("pacientes_detallado.xlsx", index=False)
+df.to_excel("HOJAexcelSUBIR\pacientes_detallado.xlsx", index=False)
 # ------------------------------------------
 # Aplicar formato rojo si RAM == 1
 # ------------------------------------------
@@ -949,7 +949,7 @@ from openpyxl import load_workbook
 from openpyxl.styles import PatternFill
 
 # Abrir el archivo recién guardado
-archivo = "pacientes_detallado.xlsx"
+archivo = "HOJAexcelSUBIR\pacientes_detallado.xlsx"
 libro = load_workbook(archivo)
 hoja = libro.active
 
