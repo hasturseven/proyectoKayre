@@ -646,7 +646,7 @@ for paciente_id, paciente_info in data.items():
     elif comorbilidades >= 2:
         presenta_comorbilidades = 4
     else:
-        presenta_comorbilidades = ""
+        presenta_comorbilidades = 0
 
     # -------------------------
     # APLICA CLINIMETRÍA
@@ -663,7 +663,7 @@ for paciente_id, paciente_info in data.items():
     elif comorbilidades >= 2:
         presenta_comorbilidades = 4
     else:
-        presenta_comorbilidades = ""
+        presenta_comorbilidades = 0
 
     # -------------------------
     # APLICA CLINIMETRÍA
@@ -760,31 +760,42 @@ for paciente_id, paciente_info in data.items():
     JACK_ADHERENCIA_MIROSKY=evaluar_adherencia_inhibidoresjack(tratamiento_principal,adherencia_mirosky)
 #ADHERENCIA DMARDS
     DMARDS_ADHERENCIA_MIROSKY=evaluar_adherencia_demards(tratamiento_principal,adherencia_mirosky)
+#---------columan -adherencia a otros tratamiento -----------------------
+    adherencia_mirosky = str(paciente_info.get("adherencia_global", "")).lower()
 
+    # Evaluar adherencia para otros tratamientos
+    if adherencia_mirosky == "no adherente":
+        adherencia_otros_tratamientos = 4
+    elif adherencia_mirosky == "parcialmente adherente":
+        adherencia_otros_tratamientos = 3
+    elif adherencia_mirosky == "adherente":
+        adherencia_otros_tratamientos = 1
+    else:
+        adherencia_otros_tratamientos = 0  # No evaluable
 
-#---------------------------------DISPENSACION ORAL---------------------------------
+#---------------------------------DISPENSACION tengo 2 columasn aca la columan  ORAL y la columan  parenteral---------------------------------
     adherencia_mirosky = str(paciente_info.get("adherencia_global", "")).lower()
     dispensacion = str(paciente_info.get("dispensacion", "")).lower()
 
     # Inicializamos el valor
-    valor_dispensacion = 0
+    valor_dispensacion_oral = 0
     parenteral = 0
     # Solo entrar si la adherencia es "adherente" o "parcialmente adherente"
     if adherencia_mirosky in ["adherente", "parcialmente adherente"]:
         if "dispensacion parcial" in dispensacion:
-            valor_dispensacion = 2
+            valor_dispensacion_oral = 2
             parenteral=evaluar_parenteral()
         elif "dispensacion completa" in dispensacion:
-            valor_dispensacion = 1
+            valor_dispensacion_oral = 1
             parenteral=0
         elif "no identificado" in dispensacion:
-            valor_dispensacion = 0
+            valor_dispensacion_oral = 0
             parenteral = 0
         elif "no dispensacion" in dispensacion:
-            valor_dispensacion = 3
+            valor_dispensacion_oral = 3
             parenteral = 0
         else:
-            valor_dispensacion = 0  # Puedes poner -1 para casos no contemplados
+            valor_dispensacion_oral = 0  # Puedes poner -1 para casos no contemplados
             parenteral = 0
 
 #--------------------- INTERACCIOENS SI NO ---------------------------
@@ -807,13 +818,13 @@ for paciente_id, paciente_info in data.items():
         interacciones_mayores = 0
         clasificacion_relevancia = 0
         mecanismo = 0
-        descripcion_molecula = ""
+        descripcion_molecula = 0
     else:
         interacciones = 1
         # Filtrar medicamentos presentes en el contenido
         descripcion_molecula = "; ".join([
-            med.capitalize() for med in medicamentos_clave if med in contenido
-        ])
+    med.capitalize() for med in medicamentos_clave if med in contenido
+    ]) or 0
 
         interacciones_mayores = 2
         clasificacion_relevancia = 3
@@ -823,6 +834,7 @@ for paciente_id, paciente_info in data.items():
     #-.--------------------------- RAM
     texto=str(paciente_info.get("ram")).lower()
     ram = 0 if "niega" in texto else 1
+    ram_0no_1si=0 if "niega" in texto else 1
     # Nuevas columnas RAM adicionales
     columnas_ram_adicionales = {
         "MEDICAMENTO_SOSPECHOSO": 0 if ram == 0 else "",
@@ -875,7 +887,7 @@ for paciente_id, paciente_info in data.items():
         "8. Hipotiroidismo/Hipertiroidismo": clasificacion["8. Hipotiroidismo/Hipertiroidismo"],
         "9. Cancer": clasificacion["9. Cancer"],
         "10. Otros": 1 if otros_enfermedades else 0,
-        "¿Cuáles otras?": ", ".join(otros_enfermedades),
+        "¿Cuáles otras?": ", ".join(otros_enfermedades)if otros_enfermedades else 0,
         "4. Presenta más de 2 comorbilidades de la lista \n2. Presenta 1 comorbilidad de la lista": presenta_comorbilidades,
         "APLICA CLINIMETRÍA\n0. No, requiere de otro parametro\n4. Si, pero es > a 2 meses": aplica_clinimetria,
         "das28_clasificacion": das28_clasificacion,
@@ -888,14 +900,16 @@ for paciente_id, paciente_info in data.items():
         "ADHERENCIA MIROSKY GREEN BIOLOGICO":BIOLOGICO_ADHERENCIA_MIROSKY,
         "ADHERENCIA MIROSKY GREEN JACK":JACK_ADHERENCIA_MIROSKY,
         "ADHERENCIA MIROSKY DMARDS":DMARDS_ADHERENCIA_MIROSKY,
+        "ADHERENCIA A OTROS TRATAMIENTOS FARMACOLOGICOS":adherencia_otros_tratamientos,
         "Dispensacion parenteral":parenteral,
-        "Dispesacion medicamentos oral": valor_dispensacion,
+        "Dispesacion medicamentos oral": valor_dispensacion_oral,
         "Interacciones 1si 2no":interacciones,
         "interacciones mayores que requieran":interacciones_mayores,
         "clasificacion relevancia":clasificacion_relevancia,
         "mecanismo farmadinamicas":mecanismo,
         "farmaco":tipo_farmaco,
         "descripcion de las molecula":descripcion_molecula,
+        "columna 0no 1 si de ram":ram_0no_1si,
         "RAM": ram,
         **columnas_ram_adicionales
 
@@ -914,7 +928,7 @@ df = pd.DataFrame(pacientes_data)
 # Ordenar las columnas
 
 # Concatenamos en el orden deseado: otras columnas, luego las de clasificación por enfermedades, y al final las de clinimetría
-columnas_finales = ["Nombre"]+["Tipo Identificación"]+["Edad"]+["Grado Escolaridad"]+["Género"]+["Gestación"]+["Consumo de SPA"]+["4. Consumo de alcohol o drogas que interacciona con medicamento"]+["Trastornos mentales"]+["Factores relacionados con el trato paciente"]+["hospitalizacion ultimos 6 meses"]+["1. Enfermedad cardiovascular"]+["2. Hipertensión arterial"]+["3. Diabetes mellitus"]+["4. Enfermedad renal"]+["5. Enfermedad hepatica"]+["6. Osteoporosis/ Artrosis/ Osteoartrosis"]+["7. Enfermedad gastrointestinal"]+["8. Hipotiroidismo/Hipertiroidismo"]+["9. Cancer"]+["10. Otros"]+["¿Cuáles otras?"]+["4. Presenta más de 2 comorbilidades de la lista \n2. Presenta 1 comorbilidad de la lista"]+["APLICA CLINIMETRÍA\n0. No, requiere de otro parametro\n4. Si, pero es > a 2 meses"]+["das28_clasificacion"]+["sledai_clasificacion"]+["asdas_clasificacion"] +["polimedicacion"]+["Cambio en Medicacion"]+["INICIO TRATAMIENTO  BIOLOGICO / ANTIYACK"] + ["INICIO TRATAMIENTO DMARDS"]+["ADHERENCIA MIROSKY GREEN BIOLOGICO"]+["ADHERENCIA MIROSKY GREEN JACK"]+["ADHERENCIA MIROSKY DMARDS"]+["Dispensacion parenteral"]+["Dispesacion medicamentos oral"]+["Interacciones 1si 2no"]+["interacciones mayores que requieran"]+["clasificacion relevancia"]+["mecanismo farmadinamicas"]+["farmaco"]+["descripcion de las molecula"]+["RAM"]+[  # Aquí agregas todas las columnas nuevas
+columnas_finales = ["Nombre"]+["Tipo Identificación"]+["Edad"]+["Grado Escolaridad"]+["Género"]+["Gestación"]+["Consumo de SPA"]+["4. Consumo de alcohol o drogas que interacciona con medicamento"]+["Trastornos mentales"]+["Factores relacionados con el trato paciente"]+["hospitalizacion ultimos 6 meses"]+["1. Enfermedad cardiovascular"]+["2. Hipertensión arterial"]+["3. Diabetes mellitus"]+["4. Enfermedad renal"]+["5. Enfermedad hepatica"]+["6. Osteoporosis/ Artrosis/ Osteoartrosis"]+["7. Enfermedad gastrointestinal"]+["8. Hipotiroidismo/Hipertiroidismo"]+["9. Cancer"]+["10. Otros"]+["¿Cuáles otras?"]+["4. Presenta más de 2 comorbilidades de la lista \n2. Presenta 1 comorbilidad de la lista"]+["APLICA CLINIMETRÍA\n0. No, requiere de otro parametro\n4. Si, pero es > a 2 meses"]+["das28_clasificacion"]+["sledai_clasificacion"]+["asdas_clasificacion"] +["polimedicacion"]+["Cambio en Medicacion"]+["INICIO TRATAMIENTO  BIOLOGICO / ANTIYACK"] + ["INICIO TRATAMIENTO DMARDS"]+["ADHERENCIA MIROSKY GREEN BIOLOGICO"]+["ADHERENCIA MIROSKY GREEN JACK"]+["ADHERENCIA MIROSKY DMARDS"]+["ADHERENCIA A OTROS TRATAMIENTOS FARMACOLOGICOS"]+["Dispensacion parenteral"]+["Dispesacion medicamentos oral"]+["Interacciones 1si 2no"]+["interacciones mayores que requieran"]+["clasificacion relevancia"]+["mecanismo farmadinamicas"]+["farmaco"]+["descripcion de las molecula"]+["columna 0no 1 si de ram"]+["RAM"]+[  # Aquí agregas todas las columnas nuevas
         "MEDICAMENTO_SOSPECHOSO",
         "ESTADO ACUTAL RAM",
         "0NO 2 SI",
